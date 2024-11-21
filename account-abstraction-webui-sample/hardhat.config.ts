@@ -23,10 +23,10 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
       chainId: 1337,
     },
-    sepolia: {
-      url: process.env.NEXT_PUBLIC_ETH_RPC_ENDPOINT,
-      accounts: [process.env.PRIVATE_KEY as string],
-    },
+    // sepolia: {
+    //   url: process.env.NEXT_PUBLIC_ETH_RPC_ENDPOINT,
+    //   accounts: [process.env.PRIVATE_KEY as string],
+    // },
   },
   gasReporter: {
     currency: "JPY",
