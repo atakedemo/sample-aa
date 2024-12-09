@@ -6,8 +6,8 @@ import { EcsContainer } from './constract/03_EcsContainer';
 import { Ec2Service } from './constract/04_Ec2Service'; 
 
 interface BundlerBackendStackProps extends cdk.StackProps {
-  repositoryArn: string,
-  repositoryName: string
+  repositoryUriGeth: string,
+  repositoryUriRundler: string,
 }
 
 export class BundlerBackendStack extends cdk.Stack {
@@ -21,8 +21,8 @@ export class BundlerBackendStack extends cdk.Stack {
       this, 
       "EcsContainer", 
       vpcConst.vpc,
-      props?.repositoryArn as string,
-      props?.repositoryName as string,
+      props?.repositoryUriGeth as string,
+      props?.repositoryUriRundler as string,
     );
 
     new Ec2Service(
