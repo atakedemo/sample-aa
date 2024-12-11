@@ -2,26 +2,24 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ecs from "aws-cdk-lib/aws-ecs";
-import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as albv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 
-export class Ec2Service extends Construct {
+export class ContainerGeth extends Construct {
     constructor(
         scope: Construct, 
-        id: string, 
-        ec2Role: iam.Role, 
+        id: string,
         vpc: ec2.Vpc,
         cluster: ecs.Cluster,
-        taskDefinition: ecs.Ec2TaskDefinition,
+        alb: albv2.ApplicationLoadBalancer,
+        repositoryUriGeth: string,
     ) {
         super(scope, id);
-        
+
         // --------------------
         // Security Group
         // --------------------
-        const sgEc2 = new ec2.SecurityGroup(this, 'SecurityGroupCluster', {
+        const sgEc2 = new ec2.SecurityGroup(this, 'sgContinaerGeth', {
             vpc,
             description: 'AA Bundler Node',
             allowAllOutbound: true
@@ -39,11 +37,6 @@ export class Ec2Service extends Construct {
         );
         sgEc2.addIngressRule(
             ec2.Peer.anyIpv4(),
-            ec2.Port.tcp(3000),
-            'allow HTTP traffic from anywhere',
-        );
-        sgEc2.addIngressRule(
-            ec2.Peer.anyIpv4(),
             ec2.Port.tcp(8545),
             'allow Geth traffic from anywhere',
         );
@@ -53,10 +46,65 @@ export class Ec2Service extends Construct {
             'allow Geth traffic from anywhere',
         );
 
+        // Task-Definition
+        const taskDefinition = new ecs.Ec2TaskDefinition(this, 'TaskDefGeth', {
+            networkMode: ecs.NetworkMode.BRIDGE,
+        });
+
+        taskDefinition.addVolume({
+            name: 'RootVolume',
+            host: {
+                sourcePath: '/data',
+            },
+        });
+
+        // Container | Geth
+        const container = taskDefinition.addContainer('ContainerGeth', {
+            image: ecs.ContainerImage.fromRegistry(repositoryUriGeth),
+            memoryReservationMiB: 512,
+            cpu: 256,
+            portMappings: [
+                {
+                    containerPort: 8545,
+                    protocol: ecs.Protocol.TCP,
+                    hostPort: 8545
+                }
+            ],
+            command: [
+                '--miner.gaslimit=12000000',
+                '--http',
+                '--http.api=personal,eth,net,web3,debug',
+                '--http.vhosts=*',
+                '--http.addr=0.0.0.0',
+                '--ws',
+                '--ws.api=personal,eth,net,web3,debug',
+                '--ws.addr=0.0.0.0',
+                '--ignore-legacy-receipts',
+                '--allow-insecure-unlock',
+                '--dev',
+                '--verbosity=2',
+                '--nodiscover',
+                '--maxpeers=0',
+                '--mine',
+                '--miner.threads=1',
+                '--networkid=1337',
+                '--datadir=/data',
+            ],
+            logging: ecs.LogDrivers.awsLogs({
+                streamPrefix: 'geth',
+            }),
+        })
+
+        container.addMountPoints({
+            sourceVolume: 'RootVolume',
+            containerPath: '/data',
+            readOnly: false,
+        });
+
         // --------------------
         // EC2
         // --------------------
-        cluster.addCapacity('DefaultAutoScalingGroup', {
+        cluster.addCapacity('AsgGeth', {
             instanceType: new ec2.InstanceType('t3.xlarge'),
             machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
             blockDevices: [
@@ -67,23 +115,17 @@ export class Ec2Service extends Construct {
             ],
         })
 
-        const ec2Service = new ecs.Ec2Service(this, 'Ec2Service', {
+        const ec2Service = new ecs.Ec2Service(this, 'Ec2ServiceGeth', {
             cluster,
             taskDefinition,
-            // securityGroups: [sgEc2]
         });
 
-        const alb = new albv2.ApplicationLoadBalancer(this, 'GethAlb', {
-            vpc,
-            internetFacing: true,
-        });
-
-        const listener = alb.addListener('GethListener', {
+        const listener = alb.addListener('ListenerGeth', {
             port: 80,
             protocol: albv2.ApplicationProtocol.HTTP,
-          });
+        });
           
-        listener.addTargets('GethTargets', {
+        listener.addTargets('TargetsGeth', {
             port: 8545,
             protocol: albv2.ApplicationProtocol.HTTP,
             targets: [ec2Service],

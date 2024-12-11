@@ -2,8 +2,10 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Vpc } from './constract/01_Vpc';
 import { KmsAndIam } from './constract/02_KmsAndIam';
-import { EcsContainer } from './constract/03_EcsContainer';
-import { Ec2Service } from './constract/04_Ec2Service'; 
+import { Alb } from './constract/03_Alb';
+import { Ecs } from './constract/04_Ecs';
+import { ContainerGeth } from './constract/05_01_ContainerGeth';
+import { EcsContainerRundler } from './constract/05_02_ContainerRundler';
 
 interface BundlerBackendStackProps extends cdk.StackProps {
   repositoryUriGeth: string,
@@ -17,21 +19,34 @@ export class BundlerBackendStack extends cdk.Stack {
     const vpcConst = new Vpc(this, "Vpc");
     const kmsiamConst = new KmsAndIam(this, "KmsAndIam");
 
-    const ecsContainerConst = new EcsContainer(
+    const albConst = new Alb(
+      this,
+      "AlbRundler",
+      vpcConst.vpc
+    )
+
+    const ecsRundlerConst = new Ecs(
       this, 
-      "EcsContainer", 
+      "EcsRundlerContainer", 
       vpcConst.vpc,
-      props?.repositoryUriGeth as string,
-      props?.repositoryUriRundler as string,
     );
 
-    new Ec2Service(
+    const containerGeth = new ContainerGeth(
       this, 
-      "Ec2Service", 
-      kmsiamConst.ec2Role, 
+      "ContainerGeth",
       vpcConst.vpc,
-      ecsContainerConst.cluster,
-      ecsContainerConst.taskDefinition,
-    );
+      ecsRundlerConst.cluster,
+      albConst.alb,
+      props?.repositoryUriGeth as string,
+    )
+
+    new EcsContainerRundler(
+      this, 
+      "ContainerRundler",
+      vpcConst.vpc,
+      ecsRundlerConst.cluster,
+      albConst.alb,
+      props?.repositoryUriRundler as string,
+    ).node.addDependency(albConst);
   }
 }
