@@ -2,10 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Vpc } from './constract/01_Vpc';
 import { KmsAndIam } from './constract/02_KmsAndIam';
-import { Alb } from './constract/03_Alb';
-import { Ecs } from './constract/04_Ecs';
-import { ContainerGeth } from './constract/05_01_ContainerGeth';
-import { EcsContainerRundler } from './constract/05_02_ContainerRundler';
+import { Ecs } from './constract/03_Ecs';
+import { ContainerGeth } from './constract/04_ContainerGeth';
+import { EcsContainerPool } from './constract/05_01_ContainerPool';
+import { EcsContainerBuilder } from './constract/05_02_ContainerBuilder';
+import { EcsContainerRpc } from './constract/05_03_ContainerRpc';
 
 interface BundlerBackendStackProps extends cdk.StackProps {
   repositoryUriGeth: string,
@@ -19,12 +20,6 @@ export class BundlerBackendStack extends cdk.Stack {
     const vpcConst = new Vpc(this, "Vpc");
     const kmsiamConst = new KmsAndIam(this, "KmsAndIam");
 
-    const albConst = new Alb(
-      this,
-      "AlbRundler",
-      vpcConst.vpc
-    )
-
     const ecsRundlerConst = new Ecs(
       this, 
       "EcsRundlerContainer", 
@@ -36,17 +31,41 @@ export class BundlerBackendStack extends cdk.Stack {
       "ContainerGeth",
       vpcConst.vpc,
       ecsRundlerConst.cluster,
-      albConst.alb,
       props?.repositoryUriGeth as string,
     )
 
-    new EcsContainerRundler(
+    const containerPool = new EcsContainerPool(
       this, 
-      "ContainerRundler",
+      "ContainerRundlerPool",
       vpcConst.vpc,
       ecsRundlerConst.cluster,
-      albConst.alb,
+      containerGeth.alb,
       props?.repositoryUriRundler as string,
-    ).node.addDependency(albConst);
+    )
+
+    const containerBuilder = new EcsContainerBuilder(
+      this, 
+      "ContainerRundlerBuilder",
+      vpcConst.vpc,
+      ecsRundlerConst.cluster,
+      containerGeth.alb,
+      containerPool.ec2instance,
+      props?.repositoryUriRundler as string,
+    )
+
+    const containerRpc = new EcsContainerRpc(
+      this, 
+      "ContainerRundlerRpc",
+      vpcConst.vpc,
+      ecsRundlerConst.cluster,
+      containerGeth.alb,
+      containerPool.ec2instance,
+      containerBuilder.ec2instance,
+      props?.repositoryUriRundler as string,
+    )
+
+    containerPool.node.addDependency(containerGeth);
+    containerBuilder.node.addDependency(containerPool);
+    containerRpc.node.addDependency(containerBuilder);
   }
 }

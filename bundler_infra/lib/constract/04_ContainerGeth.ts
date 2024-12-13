@@ -6,12 +6,13 @@ import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as albv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 
 export class ContainerGeth extends Construct {
+    public readonly alb: albv2.ApplicationLoadBalancer;
+
     constructor(
         scope: Construct, 
         id: string,
         vpc: ec2.Vpc,
         cluster: ecs.Cluster,
-        alb: albv2.ApplicationLoadBalancer,
         repositoryUriGeth: string,
     ) {
         super(scope, id);
@@ -120,7 +121,15 @@ export class ContainerGeth extends Construct {
             taskDefinition,
         });
 
-        const listener = alb.addListener('ListenerGeth', {
+        // --------------------
+        // Alb
+        // --------------------
+        this.alb = new albv2.ApplicationLoadBalancer(this, 'AlbGeth', {
+            vpc,
+            internetFacing: true,
+        });
+
+        const listener = this.alb.addListener('ListenerGeth', {
             port: 80,
             protocol: albv2.ApplicationProtocol.HTTP,
         });
