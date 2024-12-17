@@ -375,10 +375,11 @@ export default function Home() {
                 await resolveProperties({
                   ...unsigOp,
                   paymasterAndData: paymasterAddress,
-                  preVerificationGas: 21000, // dummy value, just for calldata cost
+                  preVerificationGas: 30000, // dummy value, just for calldata cost
                   signature: hexlify(Buffer.alloc(65, 1)), // dummy signature
                 })
               );
+              console.log('preVerificationGas is ...', preVerificationGas);
 
               userOp = await accountAPI.signUserOp({
                 ...unsigOp,
@@ -386,7 +387,25 @@ export default function Home() {
                 paymasterAndData: usePaymaster ? paymasterAddress : "0x",
               });
             } else if (!usePaymaster) {
-              userOp = await accountAPI.signUserOp(unsigOp);
+              // userOp = await accountAPI.signUserOp(unsigOp);
+              const userOpResolved = await resolveProperties({
+                ...unsigOp,
+                signature: hexlify(Buffer.alloc(65, 1)), // ダミーシグネチャ
+              });
+
+              const preVerificationGas = await accountAPI.getPreVerificationGas(userOpResolved);
+
+              const feeData = await provider.getFeeData();
+              const maxFeePerGas = feeData.maxFeePerGas || ethers.utils.parseUnits("50", "gwei");
+              const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || ethers.utils.parseUnits("2", "gwei");
+              console.log('preVerificationGas is ...', preVerificationGas);
+              
+              userOp = await accountAPI.signUserOp({
+                ...unsigOp,
+                preVerificationGas:50000,
+                maxFeePerGas,
+                maxPriorityFeePerGas,
+              });
             } else {
               return;
             }

@@ -20,8 +20,9 @@ const config: HardhatUserConfig = {
   },
   networks: {
     localhost: {
-      url: "http://127.0.0.1:8545",
+      url: "https://halvwqecv8.execute-api.ap-northeast-1.amazonaws.com/demo/geth",
       chainId: 1337,
+      accounts: [process.env.PRIVATE_KEY as string],
     },
     // sepolia: {
     //   url: process.env.NEXT_PUBLIC_ETH_RPC_ENDPOINT,
