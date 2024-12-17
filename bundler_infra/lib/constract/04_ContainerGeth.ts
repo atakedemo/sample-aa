@@ -4,6 +4,7 @@ import { Construct } from 'constructs';
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
 import * as albv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export class ContainerGeth extends Construct {
     public readonly alb: albv2.ApplicationLoadBalancer;
@@ -47,6 +48,11 @@ export class ContainerGeth extends Construct {
             'allow Geth traffic from anywhere',
         );
 
+        const ec2Role = new iam.Role(this, 'Ec2InstanceRole', {
+            assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
+        });
+        ec2Role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'));
+
         // Task-Definition
         const taskDefinition = new ecs.Ec2TaskDefinition(this, 'TaskDefGeth', {
             networkMode: ecs.NetworkMode.BRIDGE,
@@ -72,7 +78,7 @@ export class ContainerGeth extends Construct {
                 }
             ],
             command: [
-                '--miner.gaslimit=12000000',
+                '--miner.gaslimit=100000000',
                 '--http',
                 '--http.api=personal,eth,net,web3,debug',
                 '--http.vhosts=*',
@@ -82,6 +88,7 @@ export class ContainerGeth extends Construct {
                 '--ws.addr=0.0.0.0',
                 '--ignore-legacy-receipts',
                 '--allow-insecure-unlock',
+                '--rpc.allow-unprotected-txs',
                 '--dev',
                 '--verbosity=2',
                 '--nodiscover',
@@ -89,7 +96,6 @@ export class ContainerGeth extends Construct {
                 '--mine',
                 '--miner.threads=1',
                 '--networkid=1337',
-                '--datadir=/data',
             ],
             logging: ecs.LogDrivers.awsLogs({
                 streamPrefix: 'geth',
@@ -105,7 +111,7 @@ export class ContainerGeth extends Construct {
         // --------------------
         // EC2
         // --------------------
-        cluster.addCapacity('AsgGeth', {
+        const asg = cluster.addCapacity('AsgGeth', {
             instanceType: new ec2.InstanceType('t3.xlarge'),
             machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
             blockDevices: [
@@ -115,6 +121,7 @@ export class ContainerGeth extends Construct {
                 },
             ],
         })
+        asg.role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'));
 
         const ec2Service = new ecs.Ec2Service(this, 'Ec2ServiceGeth', {
             cluster,
@@ -148,5 +155,9 @@ export class ContainerGeth extends Construct {
                 healthyThresholdCount: 2,
             },
         });
+
+        listener.setAttribute('routing.http.response.access_control_allow_origin.header_value', '*');
+        listener.setAttribute('routing.http.response.access_control_allow_methods.header_value', 'GET,PUT,DELETE,OPTIONS');
+        listener.setAttribute('routing.http.response.access_control_allow_headers.header_value', '*');
     }
 }

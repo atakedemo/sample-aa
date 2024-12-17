@@ -129,7 +129,7 @@ export class EcsContainerRpc extends Construct {
         })
 
         // EC2
-        this.ec2instance = new ec2.Instance(this, 'InstancePool', {
+        this.ec2instance = new ec2.Instance(this, 'Instance', {
             vpc,
             instanceType: new ec2.InstanceType('t3.xlarge'),
             machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
@@ -184,5 +184,9 @@ export class EcsContainerRpc extends Construct {
                 healthyThresholdCount: 2,
             },
         });
+
+        listener.setAttribute('routing.http.response.access_control_allow_origin.header_value', '*');
+        listener.setAttribute('routing.http.response.access_control_allow_methods.header_value', 'GET,PUT,DELETE,OPTIONS');
+        listener.setAttribute('routing.http.response.access_control_allow_headers.header_value', '*');
     }
 }

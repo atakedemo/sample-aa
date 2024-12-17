@@ -7,6 +7,7 @@ import { ContainerGeth } from './constract/04_ContainerGeth';
 import { EcsContainerPool } from './constract/05_01_ContainerPool';
 import { EcsContainerBuilder } from './constract/05_02_ContainerBuilder';
 import { EcsContainerRpc } from './constract/05_03_ContainerRpc';
+import { ApiGateway } from './constract/06_ApiGateway';
 
 interface BundlerBackendStackProps extends cdk.StackProps {
   repositoryUriGeth: string,
@@ -62,6 +63,13 @@ export class BundlerBackendStack extends cdk.Stack {
       containerPool.ec2instance,
       containerBuilder.ec2instance,
       props?.repositoryUriRundler as string,
+    )
+
+    const apiGatewayConst = new ApiGateway(
+      this,
+      'ApiGatewayRundler',
+      containerGeth.alb,
+      containerRpc.alb,
     )
 
     containerPool.node.addDependency(containerGeth);

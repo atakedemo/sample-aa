@@ -130,7 +130,7 @@ export class EcsContainerPool extends Construct {
         })
 
         // EC2
-        this.ec2instance = new ec2.Instance(this, 'InstancePool', {
+        this.ec2instance = new ec2.Instance(this, 'Instance', {
             vpc,
             instanceType: new ec2.InstanceType('t3.xlarge'),
             machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
